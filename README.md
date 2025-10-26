@@ -1,4 +1,4 @@
-# 🐈neko
+# 🐈 neko
 
 [![Swift](https://img.shields.io/badge/Swift-FA7343)](https://github.com/apple/swift)
 [![LICENSE: MIT SUSHI-WARE🍣](https://raw.githubusercontent.com/watasuke102/mit-sushi-ware/master/MIT-SUSHI-WARE.svg)](https://github.com/mui-z/neko/blob/main/LICENSE)

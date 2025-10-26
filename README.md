@@ -11,7 +11,7 @@
 ## Requirements
 
 - Swift 6.0 toolchain or newer (tested with Swift 6.2)
-- macOS 14 / Linux with Swift toolchain installed
+- macOS 14 with the Swift toolchain installed
 
 ## Installation
 

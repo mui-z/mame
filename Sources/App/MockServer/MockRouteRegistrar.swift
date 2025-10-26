@@ -3,11 +3,7 @@
 #else
     import Foundation
 #endif
-#if canImport(Darwin)
-    import Darwin
-#elseif canImport(Glibc)
-    import Glibc
-#endif
+import Darwin
 import HTTPTypes
 import Hummingbird
 import Logging
@@ -336,10 +332,5 @@ private func isFileMissing(_ error: Error) -> Bool {
     if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileReadNoSuchFileError {
         return true
     }
-    #if canImport(Glibc)
-        if nsError.domain == NSPOSIXErrorDomain, nsError.code == ENOENT {
-            return true
-        }
-    #endif
     return false
 }

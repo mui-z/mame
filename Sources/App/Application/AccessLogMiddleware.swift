@@ -1,8 +1,4 @@
-#if canImport(Darwin)
-    import Darwin
-#elseif canImport(Glibc)
-    import Glibc
-#endif
+import Darwin
 import HTTPTypes
 import Hummingbird
 import Logging
@@ -51,12 +47,6 @@ struct AccessLogMiddleware<Context: RequestContext>: RouterMiddleware {
 
     private static var defaultColorSupport: Bool {
         guard Environment().get("NO_COLOR") == nil else { return false }
-        #if canImport(Darwin)
-            return isatty(STDERR_FILENO) != 0
-        #elseif canImport(Glibc)
-            return isatty(STDERR_FILENO) != 0
-        #else
-            return false
-        #endif
+        return isatty(STDERR_FILENO) != 0
     }
 }

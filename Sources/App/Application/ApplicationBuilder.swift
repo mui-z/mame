@@ -5,6 +5,7 @@ package protocol AppArguments {
     var hostname: String { get }
     var port: Int { get }
     var logLevel: Logger.Level? { get }
+    var fixtureDirectory: String { get }
 }
 
 typealias AppRequestContext = BasicRequestContext
@@ -20,7 +21,7 @@ func buildApplication(_ arguments: some AppArguments) async throws -> some Appli
         return logger
     }()
 
-    let router = try buildRouter(logger: logger)
+    let router = try buildRouter(logger: logger, fixtureDirectory: arguments.fixtureDirectory)
     return Application(
         router: router,
         configuration: .init(
@@ -31,16 +32,16 @@ func buildApplication(_ arguments: some AppArguments) async throws -> some Appli
     )
 }
 
-func buildRouter(logger: Logger) throws -> Router<AppRequestContext> {
+func buildRouter(logger: Logger, fixtureDirectory: String) throws -> Router<AppRequestContext> {
     let router = Router(context: AppRequestContext.self)
     router.addMiddleware {
-        LogRequestsMiddleware(.info)
+        AccessLogMiddleware(logger: logger)
     }
 
     router.get("/") { _, _ in
         "Hello!"
     }
 
-    MockRouteRegistrar.registerRoutes(from: "sample", on: router, logger: logger)
+    MockRouteRegistrar.registerRoutes(from: fixtureDirectory, on: router, logger: logger)
     return router
 }

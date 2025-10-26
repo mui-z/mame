@@ -32,7 +32,7 @@ enum MockRouteLoader {
 
     private static func parseMethod(from value: Any?) throws -> HTTPRequest.Method {
         guard let raw = value as? String, !raw.isEmpty else {
-            throw MockRouteLoaderError.missingField("method")
+            return .get
         }
         switch raw.uppercased() {
         case "GET": return .get
@@ -49,7 +49,7 @@ enum MockRouteLoader {
 
     private static func parseStatus(from value: Any?) throws -> HTTPResponse.Status {
         guard let value else {
-            throw MockRouteLoaderError.missingField("status")
+            return try makeStatus(from: 200)
         }
         if let intValue = value as? Int {
             return try makeStatus(from: intValue)
@@ -61,7 +61,7 @@ enum MockRouteLoader {
     }
 
     private static func parseLatency(from value: Any?) throws -> Int? {
-        guard let value else { return nil }
+        guard let value else { return 0 }
         if let intValue = value as? Int {
             return try normalizedLatency(intValue)
         }

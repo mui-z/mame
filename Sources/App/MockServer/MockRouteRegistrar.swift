@@ -3,6 +3,10 @@
 #else
     import Foundation
 #endif
+#if canImport(Glibc)
+    import Glibc
+#endif
+import HTTPTypes
 import Hummingbird
 import Logging
 
@@ -22,7 +26,11 @@ enum MockRouteRegistrar {
             return
         }
 
-        guard let enumerator = fileManager.enumerator(at: directoryURL, includingPropertiesForKeys: nil) else {
+        guard let enumerator = fileManager.enumerator(
+            at: directoryURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants],
+        ) else {
             logger.warning("Failed to enumerate mock response directory", metadata: ["directory": "\(directoryURL.path)"])
             return
         }
@@ -34,18 +42,37 @@ enum MockRouteRegistrar {
 
             do {
                 let definition = try MockRouteLoader.loadDefinition(from: standardizedURL)
-                let routePath = buildRoutePath(for: standardizedURL, relativeTo: workingDirectory)
-                let method = definition.method
+                let (routePath, methodOverride) = buildRoute(for: standardizedURL, relativeTo: directoryURL)
+                let selectedMethod = methodOverride ?? definition.method
+                if let methodOverride, methodOverride != definition.method {
+                    logger.warning(
+                        "Method override from filename",
+                        metadata: [
+                            "file": "\(standardizedURL.path)",
+                            "method": "\(methodOverride.rawValue)",
+                            "yaml": "\(definition.method.rawValue)",
+                        ],
+                    )
+                }
 
-                router.on(RouterPath(routePath), method: method) { _, _ in
+                router.on(RouterPath(routePath), method: selectedMethod) { _, _ in
                     do {
                         let refreshedDefinition = try MockRouteLoader.loadDefinition(from: standardizedURL)
-                        if refreshedDefinition.method != method {
+                        if let methodOverride, refreshedDefinition.method != methodOverride {
                             logger.warning(
                                 "Mock route method does not match registered method",
                                 metadata: [
                                     "file": "\(standardizedURL.path)",
-                                    "registered": "\(method.rawValue)",
+                                    "registered": "\(methodOverride.rawValue)",
+                                    "configured": "\(refreshedDefinition.method.rawValue)",
+                                ],
+                            )
+                        } else if methodOverride == nil, refreshedDefinition.method != selectedMethod {
+                            logger.warning(
+                                "Mock route method does not match registered method",
+                                metadata: [
+                                    "file": "\(standardizedURL.path)",
+                                    "registered": "\(selectedMethod.rawValue)",
                                     "configured": "\(refreshedDefinition.method.rawValue)",
                                 ],
                             )
@@ -69,24 +96,41 @@ enum MockRouteRegistrar {
 
                         return refreshedDefinition.makeResponse()
                     } catch {
-                        logger.error(
-                            "Failed to reload mock route",
-                            metadata: [
-                                "file": "\(standardizedURL.path)",
-                                "reason": "\(error.localizedDescription)",
-                            ],
-                        )
-                        let errorBody = (try? MockRouteLoaderErrorPayload.build(reason: error.localizedDescription))
-                            ?? "{\"error\":\"Failed to load mock response\"}"
-                        return MockRouteResponseFactory.makeJSONResponse(status: .internalServerError, body: errorBody)
+                        if isFileMissing(error) {
+                            logger.warning(
+                                "Fixture missing",
+                                metadata: [
+                                    "file": "\(standardizedURL.path)",
+                                    "reason": "File not found",
+                                ],
+                            )
+                            return MockRouteResponseFactory.makeJSONResponse(
+                                status: .notFound,
+                                body: "{\"error\":\"Fixture not found\"}",
+                            )
+                        } else {
+                            logger.error(
+                                "Failed to reload mock route",
+                                metadata: [
+                                    "file": "\(standardizedURL.path)",
+                                    "reason": "\(error.localizedDescription)",
+                                ],
+                            )
+                            let errorBody = (try? MockRouteLoaderErrorPayload.build(reason: error.localizedDescription))
+                                ?? "{\"error\":\"Failed to load mock response\"}"
+                            return MockRouteResponseFactory.makeJSONResponse(status: .internalServerError, body: errorBody)
+                        }
                     }
                 }
 
-                logger.debug("Registered mock route", metadata: [
-                    "path": "\(routePath)",
-                    "method": "\(definition.method.rawValue)",
-                    "source": "\(standardizedURL.path)",
-                ])
+                logger.debug(
+                    "Registered mock route",
+                    metadata: [
+                        "path": "\(routePath)",
+                        "method": "\(selectedMethod.rawValue)",
+                        "source": "\(standardizedURL.path)",
+                    ],
+                )
             } catch {
                 logger.warning(
                     "Skipping mock route",
@@ -99,11 +143,30 @@ enum MockRouteRegistrar {
         }
     }
 
-    private static func buildRoutePath(for fileURL: URL, relativeTo root: URL) -> String {
-        let trimmedPath = stripPrefix(fileURL.deletingPathExtension().path, prefix: root.path)
+    private static func buildRoute(for fileURL: URL, relativeTo root: URL) -> (path: String, method: HTTPRequest.Method?) {
+        let withoutExtension = fileURL.deletingPathExtension()
+        let relative = stripPrefix(withoutExtension.path, prefix: root.path)
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard !trimmedPath.isEmpty else { return "/" }
-        return "/\(trimmedPath)"
+
+        guard !relative.isEmpty else { return ("/", nil) }
+
+        var components = relative.split(separator: "/", omittingEmptySubsequences: true)
+        guard !components.isEmpty else { return ("/", nil) }
+
+        var methodOverride: HTTPRequest.Method?
+        let lastIndex = components.indices.last!
+        let lastComponent = components[lastIndex]
+        if let hashIndex = lastComponent.firstIndex(of: "#") {
+            let suffix = lastComponent[lastComponent.index(after: hashIndex)...]
+            let base = lastComponent[..<hashIndex]
+            if let method = HTTPRequest.Method(rawValue: suffix.uppercased()) {
+                methodOverride = method
+            }
+            components[lastIndex] = base
+        }
+
+        let normalizedPath = "/" + components.joined(separator: "/")
+        return (normalizedPath, methodOverride)
     }
 
     private static func stripPrefix(_ string: String, prefix: String) -> String {
@@ -124,4 +187,17 @@ private enum MockRouteLoaderErrorPayload {
         }
         return string
     }
+}
+
+private func isFileMissing(_ error: Error) -> Bool {
+    let nsError = error as NSError
+    if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileReadNoSuchFileError {
+        return true
+    }
+    #if canImport(Glibc)
+        if nsError.domain == NSPOSIXErrorDomain, nsError.code == ENOENT {
+            return true
+        }
+    #endif
+    return false
 }

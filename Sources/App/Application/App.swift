@@ -5,7 +5,7 @@ import Logging
 @main
 struct AppCommand: AsyncParsableCommand, AppArguments {
     static let configuration = CommandConfiguration(
-        commandName: "mame",
+        commandName: "neko",
         abstract: "Filesystem-driven mock HTTP server",
         discussion: """
         Serve JSON responses described in YAML files. By default the current working directory is scanned for

@@ -25,7 +25,7 @@ COPY . .
 
 # Build the application, with optimizations, with static linking, and using jemalloc
 RUN swift build -c release \
-    --product "mame" \
+    --product "neko" \
     --static-swift-stdlib \
     -Xlinker -ljemalloc
 
@@ -33,7 +33,7 @@ RUN swift build -c release \
 WORKDIR /staging
 
 # Copy main executable to staging area
-RUN cp "$(swift build --package-path /build -c release --show-bin-path)/mame" ./
+RUN cp "$(swift build --package-path /build -c release --show-bin-path)/neko" ./
 
 # Copy static swift backtracer binary to staging area
 RUN cp "/usr/libexec/swift/linux/swift-backtrace-static" ./
@@ -83,5 +83,5 @@ USER hummingbird:hummingbird
 EXPOSE 8080
 
 # Start the Hummingbird service when the image is run, default to listening on 8080 in production environment
-ENTRYPOINT ["./mame"]
+ENTRYPOINT ["./neko"]
 CMD ["--hostname", "0.0.0.0", "--port", "8080"]

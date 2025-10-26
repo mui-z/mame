@@ -1,11 +1,11 @@
-# 🫛mame
+# 🐈neko
 
 [![Swift](https://img.shields.io/badge/Swift-FA7343)](https://github.com/apple/swift)
-[![LICENSE: MIT SUSHI-WARE🍣](https://raw.githubusercontent.com/watasuke102/mit-sushi-ware/master/MIT-SUSHI-WARE.svg)](https://github.com/mui-z/mame/blob/main/LICENSE)
+[![LICENSE: MIT SUSHI-WARE🍣](https://raw.githubusercontent.com/watasuke102/mit-sushi-ware/master/MIT-SUSHI-WARE.svg)](https://github.com/mui-z/neko/blob/main/LICENSE)
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/mui_z_.svg?style=social&label=Follow%20%40mui-z)](https://twitter.com/mui_z_)
 
 
-`mame` is a small Hummingbird-based HTTP service that serves JSON responses defined in filesystem YAML fixtures. Each request reloads the originating YAML, so editing files under `sample/` immediately changes the returned payload—no server restart required.
+`neko` is a small Hummingbird-based HTTP service that serves JSON responses defined in filesystem YAML fixtures. Each request reloads the originating YAML, so editing files under `sample/` immediately changes the returned payload—no server restart required.
 
 
 ## Requirements
@@ -18,33 +18,33 @@
 ### Homebrew
 
 ```sh
-brew tap mui-z/mame https://github.com/mui-z/mame.git
-brew install --HEAD mame
+brew tap mui-z/neko https://github.com/mui-z/neko.git
+brew install --HEAD neko
 ```
 
-The tap consumes the formula in `Formula/mame.rb` and installs the built binary into `$(brew --prefix)/bin/mame`. Replace `--HEAD` with a tagged release once stable tarballs are published.
+The tap consumes the formula in `Formula/neko.rb` and installs the built binary into `$(brew --prefix)/bin/neko`. Replace `--HEAD` with a tagged release once stable tarballs are published.
 
 ### Mint
 
 ```sh
-mint install mui-z/mame
+mint install mui-z/neko
 ```
 
-Mint will build the latest tagged release; pass a version (`mint install mui-z/mame@0.1.0`) to pin your toolchain.
+Mint will build the latest tagged release; pass a version (`mint install mui-z/neko@0.1.0`) to pin your toolchain.
 
 ## Running the Server
 
 ```sh
 swift build
 # run from repo root, pointing at the bundled fixtures
-swift run mame --hostname 0.0.0.0 --port 8080 --log-level debug --fixtures sample
+swift run neko --hostname 0.0.0.0 --port 8080 --log-level debug --fixtures sample
 
 # or run from inside your fixtures directory
 cd sample
-swift run mame --hostname 0.0.0.0 --port 8080 --log-level debug
+swift run neko --hostname 0.0.0.0 --port 8080 --log-level debug
 
 # or use the positional shortcut
-swift run mame sample
+swift run neko sample
 ```
 
 `--fixtures` (alias: `--root`, `-f`) points at the directory containing YAML files. It defaults to the current working directory, so changing into the fixture directory lets you omit the flag entirely. With the bundled fixtures (`sample/`), `GET /v1/hello` returns the contents of `sample/v1/hello.yml`.
@@ -52,7 +52,7 @@ swift run mame sample
 ### Command Options
 
 ```text
-USAGE: mame [<fixture-directory>] [--hostname <hostname>] [--port <port>] [--log-level <log-level>] [--fixtures <fixtures>]
+USAGE: neko [<fixture-directory>] [--hostname <hostname>] [--port <port>] [--log-level <log-level>] [--fixtures <fixtures>]
 
 OPTIONS:
   -f, --fixtures, --root <fixtures>    Directory containing YAML fixtures (defaults to current dir)
@@ -105,8 +105,8 @@ Tests (`Tests/AppTests/AppTests.swift`) use Swift Testing macros and Hummingbird
 ## Container Usage
 
 ```sh
-docker build -t mame .
-docker run --rm -p 8080:8080 mame
+docker build -t neko .
+docker run --rm -p 8080:8080 neko
 ```
 
 ## Directory Layout

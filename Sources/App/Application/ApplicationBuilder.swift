@@ -13,7 +13,7 @@ typealias AppRequestContext = BasicRequestContext
 func buildApplication(_ arguments: some AppArguments) async throws -> some ApplicationProtocol {
     let environment = Environment()
     let logger = {
-        var logger = Logger(label: "mame")
+        var logger = Logger(label: "neko")
         logger.logLevel =
             arguments.logLevel ??
             environment.get("LOG_LEVEL").flatMap { Logger.Level(rawValue: $0) } ??
@@ -26,7 +26,7 @@ func buildApplication(_ arguments: some AppArguments) async throws -> some Appli
         router: router,
         configuration: .init(
             address: .hostname(arguments.hostname, port: arguments.port),
-            serverName: "mame",
+            serverName: "neko",
         ),
         logger: logger,
     )

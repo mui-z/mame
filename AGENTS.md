@@ -4,7 +4,7 @@
 The SwiftPM manifest (`Package.swift`) defines a single executable target. Runtime code is split into `Sources/App/Application` for the CLI entry point, router builder, and request logging (`AccessLogMiddleware`), and `Sources/App/MockServer` for YAML-driven routing helpers (`MockRouteDefinition`, `MockRouteLoader`, `MockRouteRegistrar`). Sample fixtures live under `sample/` and are loaded on every request, so edits take effect without restarting the service. Tests reside in `Tests/AppTests` and exercise routes with HummingbirdTesting and Swift Testing macros.
 
 ## Build, Test, and Development Commands
-Use `swift build` to compile and surface warnings. Launch the server locally via `swift run mame --hostname 0.0.0.0 --port 8080 --log-level debug --fixtures sample` when running from the repository root. The fixture directory option also answers to `--root`/`-f`, and a positional argument (`swift run mame sample`) is supported. Run `swift test` before committing; CI executes the same command. Container workflows remain `docker build -t mame .` followed by `docker run --rm -p 8080:8080 mame` for a disposable instance. Finish every change with `swiftformat .`.
+Use `swift build` to compile and surface warnings. Launch the server locally via `swift run neko --hostname 0.0.0.0 --port 8080 --log-level debug --fixtures sample` when running from the repository root. The fixture directory option also answers to `--root`/`-f`, and a positional argument (`swift run neko sample`) is supported. Run `swift test` before committing; CI executes the same command. Container workflows remain `docker build -t neko .` followed by `docker run --rm -p 8080:8080 neko` for a disposable instance. Finish every change with `swiftformat .`.
 
 ## Coding Style & Naming Conventions
 Follow the Swift API Design Guidelines: four-space indentation, brace-on-same-line declarations, `UpperCamelCase` types, and `lowerCamelCase` identifiers. Router helpers favour `guard` for early exits and keep async closures short. Align new files with the existing directory split (application vs. mock server) and avoid introducing non-ASCII characters unless required by content. After every change set, run `swiftformat .` at the repository root so style stays consistent.
@@ -17,8 +17,8 @@ Fixtures deleted after startup now return HTTP 404; tests should cover that beha
 
 ## Distribution Notes
 
-- Homebrew users can tap `osushi/mame` (formula in `Formula/mame.rb`) and run `brew install --HEAD mame` until tagged releases are available.
-- Mint users can install with `mint install osushi/mame`.
+- Homebrew users can tap `osushi/neko` (formula in `Formula/neko.rb`) and run `brew install --HEAD neko` until tagged releases are available.
+- Mint users can install with `mint install osushi/neko`.
 - Keep these instructions updated when publishing new tags/releases.
 
 ## Commit & Pull Request Guidelines

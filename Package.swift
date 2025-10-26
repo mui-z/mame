@@ -4,10 +4,10 @@
 import PackageDescription
 
 let package = Package(
-    name: "mame",
+    name: "neko",
     platforms: [.macOS(.v14), .iOS(.v17), .tvOS(.v17)],
     products: [
-        .executable(name: "mame", targets: ["mame"]),
+        .executable(name: "neko", targets: ["neko"]),
     ],
     dependencies: [
         .package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.0.0"),
@@ -16,16 +16,16 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-testing.git", from: "0.9.0"),
     ],
     targets: [
-        .executableTarget(name: "mame",
+        .executableTarget(name: "neko",
                           dependencies: [
                               .product(name: "ArgumentParser", package: "swift-argument-parser"),
                               .product(name: "Hummingbird", package: "hummingbird"),
                               .product(name: "Yams", package: "Yams"),
                           ],
                           path: "Sources/App"),
-        .testTarget(name: "mameTests",
+        .testTarget(name: "nekoTests",
                     dependencies: [
-                        .byName(name: "mame"),
+                        .byName(name: "neko"),
                         .product(name: "HummingbirdTesting", package: "hummingbird"),
                         .product(name: "Testing", package: "swift-testing"),
                     ],

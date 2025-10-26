@@ -6,7 +6,7 @@ import Logging
 import NIOCore
 import Testing
 
-@testable import mame
+@testable import neko
 
 @Suite struct AppTests {
     struct TestArguments: AppArguments {

@@ -19,8 +19,7 @@ enum MockRouteRegistrar {
         logger: Logger,
     ) {
         let fileManager = FileManager.default
-        let workingDirectory = URL(fileURLWithPath: fileManager.currentDirectoryPath)
-        let directoryURL = URL(fileURLWithPath: directory, relativeTo: workingDirectory).standardizedFileURL
+        let directoryURL = resolveDirectoryURL(for: directory)
 
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
@@ -58,62 +57,16 @@ enum MockRouteRegistrar {
                 }
 
                 router.on(RouterPath(routePath), method: selectedMethod) { _, _ in
-                    do {
-                        let refreshedDefinition = try MockRouteLoader.loadDefinition(from: standardizedURL)
-                        if methodOverride == nil, refreshedDefinition.method != selectedMethod {
-                            logger.warning(
-                                "Mock route method does not match registered method",
-                                metadata: [
-                                    "file": "\(standardizedURL.path)",
-                                    "registered": "\(selectedMethod.rawValue)",
-                                    "configured": "\(refreshedDefinition.method.rawValue)",
-                                ],
-                            )
-                        }
-
-                        if let milliseconds = refreshedDefinition.latencyMilliseconds {
-                            if let nanoseconds = refreshedDefinition.latencyNanoseconds {
-                                if nanoseconds > 0 {
-                                    try await Task.sleep(nanoseconds: nanoseconds)
-                                }
-                            } else {
-                                logger.warning(
-                                    "Configured latency too large to apply",
-                                    metadata: [
-                                        "file": "\(standardizedURL.path)",
-                                        "latency": "\(milliseconds)",
-                                    ],
-                                )
-                            }
-                        }
-
-                        return refreshedDefinition.makeResponse()
-                    } catch {
-                        if isFileMissing(error) {
-                            logger.warning(
-                                "Fixture missing",
-                                metadata: [
-                                    "file": "\(standardizedURL.path)",
-                                    "reason": "File not found",
-                                ],
-                            )
-                            return MockRouteResponseFactory.makeJSONResponse(
-                                status: .notFound,
-                                body: "{\"error\":\"Fixture not found\"}",
-                            )
-                        } else {
-                            logger.error(
-                                "Failed to reload mock route",
-                                metadata: [
-                                    "file": "\(standardizedURL.path)",
-                                    "reason": "\(error.localizedDescription)",
-                                ],
-                            )
-                            let errorBody = (try? MockRouteLoaderErrorPayload.build(reason: error.localizedDescription))
-                                ?? "{\"error\":\"Failed to load mock response\"}"
-                            return MockRouteResponseFactory.makeJSONResponse(status: .internalServerError, body: errorBody)
-                        }
+                    if let response = try await makeResponse(
+                        from: standardizedURL,
+                        methodOverride: methodOverride,
+                        requestMethod: selectedMethod,
+                        logger: logger,
+                        enforceMethodMatch: false,
+                    ) {
+                        return response
                     }
+                    throw HTTPError(.notFound)
                 }
 
                 logger.debug(
@@ -165,6 +118,202 @@ enum MockRouteRegistrar {
     private static func stripPrefix(_ string: String, prefix: String) -> String {
         guard string.hasPrefix(prefix) else { return string }
         return String(string.dropFirst(prefix.count))
+    }
+}
+
+extension MockRouteRegistrar {
+    static func resolveDirectoryURL(for directory: String) -> URL {
+        let fileManager = FileManager.default
+        let workingDirectory = URL(fileURLWithPath: fileManager.currentDirectoryPath)
+        return URL(fileURLWithPath: directory, relativeTo: workingDirectory).standardizedFileURL
+    }
+
+    static func makeDynamicResponse(
+        for requestPath: String,
+        method: HTTPRequest.Method,
+        directoryURL: URL,
+        logger: Logger,
+    ) async throws -> Response? {
+        guard
+            let (fileURL, methodOverride) = findFixture(
+                for: requestPath,
+                method: method,
+                root: directoryURL,
+            )
+        else {
+            return nil
+        }
+        return try await makeResponse(
+            from: fileURL,
+            methodOverride: methodOverride,
+            requestMethod: method,
+            logger: logger,
+            enforceMethodMatch: methodOverride == nil,
+        ).map { response in
+            logger.debug(
+                "Dynamically served mock route",
+                metadata: [
+                    "path": "\(requestPath)",
+                    "method": "\(method.rawValue)",
+                    "source": "\(fileURL.path)",
+                ],
+            )
+            return response
+        }
+    }
+
+    private static func findFixture(
+        for requestPath: String,
+        method: HTTPRequest.Method,
+        root: URL,
+    ) -> (url: URL, methodOverride: HTTPRequest.Method?)? {
+        guard let relativePath = normalizedRelativePath(from: requestPath) else {
+            return nil
+        }
+        let fileManager = FileManager.default
+        let methodSuffixes = [method.rawValue.lowercased(), method.rawValue.uppercased()]
+        for suffix in methodSuffixes {
+            for ext in ["yml", "yaml"] {
+                let candidate = root
+                    .appendingPathComponent("\(relativePath)#\(suffix)")
+                    .appendingPathExtension(ext)
+                if fileManager.fileExists(atPath: candidate.path) {
+                    return (candidate.standardizedFileURL, method)
+                }
+            }
+        }
+        for ext in ["yml", "yaml"] {
+            let candidate = root
+                .appendingPathComponent(relativePath)
+                .appendingPathExtension(ext)
+            if fileManager.fileExists(atPath: candidate.path) {
+                return (candidate.standardizedFileURL, nil)
+            }
+        }
+        return nil
+    }
+
+    private static func normalizedRelativePath(from requestPath: String) -> String? {
+        let decoded = requestPath.removingPercentEncoding ?? requestPath
+        let trimmed = decoded.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !trimmed.isEmpty else { return nil }
+        let components = trimmed.split(separator: "/").map(String.init)
+        var sanitized: [String] = []
+        for component in components {
+            switch component {
+            case ".":
+                continue
+            case "..":
+                return nil
+            default:
+                sanitized.append(component)
+            }
+        }
+        guard !sanitized.isEmpty else { return nil }
+        return sanitized.joined(separator: "/")
+    }
+
+    private static func makeResponse(
+        from fileURL: URL,
+        methodOverride: HTTPRequest.Method?,
+        requestMethod: HTTPRequest.Method,
+        logger: Logger,
+        enforceMethodMatch: Bool,
+    ) async throws -> Response? {
+        do {
+            let definition = try MockRouteLoader.loadDefinition(from: fileURL)
+            if let methodOverride {
+                if methodOverride != definition.method {
+                    logger.warning(
+                        "Method override from filename",
+                        metadata: [
+                            "file": "\(fileURL.path)",
+                            "method": "\(methodOverride.rawValue)",
+                            "yaml": "\(definition.method.rawValue)",
+                        ],
+                    )
+                }
+            } else if definition.method != requestMethod {
+                if enforceMethodMatch {
+                    return nil
+                }
+                logger.warning(
+                    "Mock route method does not match registered method",
+                    metadata: [
+                        "file": "\(fileURL.path)",
+                        "registered": "\(requestMethod.rawValue)",
+                        "configured": "\(definition.method.rawValue)",
+                    ],
+                )
+            }
+
+            if let milliseconds = definition.latencyMilliseconds {
+                if let nanoseconds = definition.latencyNanoseconds {
+                    if nanoseconds > 0 {
+                        try await Task.sleep(nanoseconds: nanoseconds)
+                    }
+                } else {
+                    logger.warning(
+                        "Configured latency too large to apply",
+                        metadata: [
+                            "file": "\(fileURL.path)",
+                            "latency": "\(milliseconds)",
+                        ],
+                    )
+                }
+            }
+
+            return definition.makeResponse()
+        } catch {
+            if isFileMissing(error) {
+                logger.warning(
+                    "Fixture missing",
+                    metadata: [
+                        "file": "\(fileURL.path)",
+                        "reason": "File not found",
+                    ],
+                )
+                return MockRouteResponseFactory.makeJSONResponse(
+                    status: .notFound,
+                    body: "{\"error\":\"Fixture not found\"}",
+                )
+            }
+            logger.error(
+                "Failed to reload mock route",
+                metadata: [
+                    "file": "\(fileURL.path)",
+                    "reason": "\(error.localizedDescription)",
+                ],
+            )
+            let errorBody = (try? MockRouteLoaderErrorPayload.build(reason: error.localizedDescription))
+                ?? "{\"error\":\"Failed to load mock response\"}"
+            return MockRouteResponseFactory.makeJSONResponse(status: .internalServerError, body: errorBody)
+        }
+    }
+}
+
+struct DynamicFixtureMiddleware<Context: RequestContext>: RouterMiddleware {
+    let directoryURL: URL
+    let logger: Logger
+
+    func handle(
+        _ request: Request,
+        context: Context,
+        next: (Request, Context) async throws -> Response,
+    ) async throws -> Response {
+        do {
+            return try await next(request, context)
+        } catch let error as HTTPError where error.status == .notFound {
+            if let response = try await MockRouteRegistrar.makeDynamicResponse(
+                for: request.uri.path,
+                method: request.method,
+                directoryURL: directoryURL,
+                logger: logger,
+            ) {
+                return response
+            }
+            throw error
+        }
     }
 }
 

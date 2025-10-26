@@ -34,8 +34,12 @@ func buildApplication(_ arguments: some AppArguments) async throws -> some Appli
 
 func buildRouter(logger: Logger, fixtureDirectory: String) throws -> Router<AppRequestContext> {
     let router = Router(context: AppRequestContext.self)
+    let fixturesURL = MockRouteRegistrar.resolveDirectoryURL(for: fixtureDirectory)
     router.addMiddleware {
         AccessLogMiddleware(logger: logger)
+    }
+    router.addMiddleware {
+        DynamicFixtureMiddleware(directoryURL: fixturesURL, logger: logger)
     }
 
     router.get("/") { _, _ in

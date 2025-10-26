@@ -16,11 +16,7 @@ enum MockRouteLoader {
         let method = try parseMethod(from: raw["method"])
         let status = try parseStatus(from: raw["status"])
         let latency = try parseLatency(from: raw["latency"])
-
-        guard let jsonValue = raw["json"] else {
-            throw MockRouteLoaderError.missingField("json")
-        }
-        let responseBody = try encodeJSON(from: jsonValue)
+        let responseBody = try parseResponseBody(from: raw)
 
         return MockRouteDefinition(
             method: method,
@@ -69,6 +65,16 @@ enum MockRouteLoader {
             return try normalizedLatency(intValue)
         }
         throw MockRouteLoaderError.invalidLatency("\(value)")
+    }
+
+    private static func parseResponseBody(from raw: [String: Any]) throws -> String {
+        if let bodyValue = raw["body"] {
+            return try encodeJSON(from: bodyValue)
+        }
+        if let legacyJSONValue = raw["json"] {
+            return try encodeJSON(from: legacyJSONValue)
+        }
+        throw MockRouteLoaderError.missingField("body")
     }
 
     private static func encodeJSON(from value: Any) throws -> String {

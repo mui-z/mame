@@ -50,13 +50,13 @@ import Testing
         let initialYAML = """
         status: 200
         method: GET
-        json:
+        body:
           {"message":"original"}
         """
         let updatedYAML = """
         status: 201
         method: GET
-        json:
+        body:
           {"message":"updated"}
         """
 
@@ -80,6 +80,60 @@ import Testing
     }
 
     @Test
+    func newlyAddedFixtureServesWithoutRestart() async throws {
+        let baseURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("sample")
+            .appendingPathComponent("v1")
+        try FileManager.default.createDirectory(at: baseURL, withIntermediateDirectories: true)
+        let fileURL = baseURL.appendingPathComponent("late_binding.yml")
+        let yaml = """
+        status: 202
+        method: GET
+        body:
+          {"message":"late"}
+        """
+
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let app = try await buildApplication(TestArguments())
+
+        try await app.test(.router) { client in
+            try yaml.write(to: fileURL, atomically: true, encoding: .utf8)
+            try await client.execute(uri: "/v1/late_binding", method: .get) { response in
+                #expect(response.status == .accepted)
+                #expect(String(buffer: response.body) == "{\"message\":\"late\"}")
+            }
+        }
+    }
+
+    @Test
+    func newlyAddedMethodSpecificFixtureHonoursOverride() async throws {
+        let baseURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("sample")
+            .appendingPathComponent("v1")
+        try FileManager.default.createDirectory(at: baseURL, withIntermediateDirectories: true)
+        let fileURL = baseURL.appendingPathComponent("late_binding#post.yml")
+        let yaml = """
+        status: 201
+        body:
+          {"message":"late post"}
+        """
+
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let app = try await buildApplication(TestArguments())
+
+        try await app.test(.router) { client in
+            try yaml.write(to: fileURL, atomically: true, encoding: .utf8)
+
+            try await client.execute(uri: "/v1/late_binding", method: .post) { response in
+                #expect(response.status == .created)
+                #expect(String(buffer: response.body) == "{\"message\":\"late post\"}")
+            }
+        }
+    }
+
+    @Test
     func missingFixtureReturnsNotFound() async throws {
         let fileManager = FileManager.default
         let baseURL = URL(fileURLWithPath: fileManager.currentDirectoryPath)
@@ -87,7 +141,7 @@ import Testing
         try fileManager.createDirectory(at: baseURL, withIntermediateDirectories: true)
         let fileURL = baseURL.appendingPathComponent("ephemeral.yml")
         let yaml = """
-        json:
+        body:
           {"message":"temp"}
         """
         try yaml.write(to: fileURL, atomically: true, encoding: .utf8)
@@ -116,11 +170,11 @@ import Testing
         let getURL = baseURL.appendingPathComponent("multi#get.yml")
         let postURL = baseURL.appendingPathComponent("multi#post.yml")
         let getYAML = """
-        json:
+        body:
           {"message":"get variant"}
         """
         let postYAML = """
-        json:
+        body:
           {"message":"post variant"}
         """
         try getYAML.write(to: getURL, atomically: true, encoding: .utf8)

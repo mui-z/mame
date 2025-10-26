@@ -5,7 +5,7 @@
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/mui_z_.svg?style=social&label=Follow%20%40mui-z)](https://twitter.com/mui_z_)
 
 
-`neko` is a small Hummingbird-based HTTP service that serves JSON responses defined in filesystem YAML fixtures. Each request reloads the originating YAML, so editing files under `sample/` immediately changes the returned payload—no server restart required.
+`neko` is a small Hummingbird-based HTTP service that serves JSON responses defined in filesystem YAML fixtures. Each request reloads the originating YAML, and new fixture files are discovered on demand, so editing or adding files under `sample/` immediately changes the returned payload—no server restart required.
 
 
 ## Requirements
@@ -64,13 +64,13 @@ OPTIONS:
 
 ## YAML Format
 
-Each YAML document must contain a `json` field with a JSON object/body. Other fields are optional and default to:
+Each YAML document must contain a `body` field with the desired JSON payload. For backwards compatibility the legacy `json` field is still accepted, but new fixtures should prefer `body`. Other fields are optional and default to:
 
 ```yaml
 status: 200      # optional – defaults to 200
 method: GET      # optional – defaults to GET (routes are registered per method)
 latency: 0       # optional – defaults to 0ms artificial delay
-json:
+body:
   {
     "message": "hello world!"
   }

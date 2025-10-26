@@ -1,35 +1,79 @@
+import Foundation
 import HTTPTypes
 import Hummingbird
 import HummingbirdTesting
 import Logging
-import XCTest
+import NIOCore
+import Testing
 
 @testable import mame
 
-final class AppTests: XCTestCase {
+@Suite struct AppTests {
     struct TestArguments: AppArguments {
         let hostname = "127.0.0.1"
         let port = 0
         let logLevel: Logger.Level? = .trace
     }
 
-    func testApp() async throws {
-        let args = TestArguments()
-        let app = try await buildApplication(args)
+    @Test
+    func rootReturnsGreeting() async throws {
+        let app = try await buildApplication(TestArguments())
         try await app.test(.router) { client in
             try await client.execute(uri: "/", method: .get) { response in
-                XCTAssertEqual(response.body, ByteBuffer(string: "Hello!"))
+                #expect(response.body == ByteBuffer(string: "Hello!"))
             }
         }
     }
 
-    func testSampleYamlRoute() async throws {
+    @Test
+    func sampleYamlRouteServesFixture() async throws {
         let app = try await buildApplication(TestArguments())
         try await app.test(.router) { client in
             try await client.execute(uri: "/sample/v1/hello", method: .get) { response in
-                XCTAssertEqual(response.status, .ok)
-                XCTAssertEqual(response.headers[.contentType], "application/json; charset=utf-8")
-                XCTAssertEqual(String(buffer: response.body), "{\"message\":\"hello world!\"}")
+                #expect(response.status == .ok)
+                #expect(response.headers[.contentType] == "application/json; charset=utf-8")
+                #expect(String(buffer: response.body) == "{\"message\":\"hello world!\"}")
+            }
+        }
+    }
+
+    @Test
+    func hotReloadReflectsUpdatedYaml() async throws {
+        let fileManager = FileManager.default
+        let baseURL = URL(fileURLWithPath: fileManager.currentDirectoryPath)
+            .appendingPathComponent("sample")
+            .appendingPathComponent("v1")
+        try fileManager.createDirectory(at: baseURL, withIntermediateDirectories: true)
+        let fileURL = baseURL.appendingPathComponent("hot_reload.yml")
+
+        let initialYAML = """
+        status: 200
+        method: GET
+        json:
+          {"message":"original"}
+        """
+        let updatedYAML = """
+        status: 201
+        method: GET
+        json:
+          {"message":"updated"}
+        """
+
+        try initialYAML.write(to: fileURL, atomically: true, encoding: .utf8)
+        defer { try? fileManager.removeItem(at: fileURL) }
+
+        let app = try await buildApplication(TestArguments())
+        try await app.test(.router) { client in
+            try await client.execute(uri: "/sample/v1/hot_reload", method: .get) { response in
+                #expect(response.status == .ok)
+                #expect(String(buffer: response.body) == "{\"message\":\"original\"}")
+            }
+
+            try updatedYAML.write(to: fileURL, atomically: true, encoding: .utf8)
+
+            try await client.execute(uri: "/sample/v1/hot_reload", method: .get) { response in
+                #expect(response.status == .created)
+                #expect(String(buffer: response.body) == "{\"message\":\"updated\"}")
             }
         }
     }

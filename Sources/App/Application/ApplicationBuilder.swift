@@ -1,0 +1,46 @@
+import Hummingbird
+import Logging
+
+package protocol AppArguments {
+    var hostname: String { get }
+    var port: Int { get }
+    var logLevel: Logger.Level? { get }
+}
+
+typealias AppRequestContext = BasicRequestContext
+
+func buildApplication(_ arguments: some AppArguments) async throws -> some ApplicationProtocol {
+    let environment = Environment()
+    let logger = {
+        var logger = Logger(label: "mame")
+        logger.logLevel =
+            arguments.logLevel ??
+            environment.get("LOG_LEVEL").flatMap { Logger.Level(rawValue: $0) } ??
+            .info
+        return logger
+    }()
+
+    let router = try buildRouter(logger: logger)
+    return Application(
+        router: router,
+        configuration: .init(
+            address: .hostname(arguments.hostname, port: arguments.port),
+            serverName: "mame",
+        ),
+        logger: logger,
+    )
+}
+
+func buildRouter(logger: Logger) throws -> Router<AppRequestContext> {
+    let router = Router(context: AppRequestContext.self)
+    router.addMiddleware {
+        LogRequestsMiddleware(.info)
+    }
+
+    router.get("/") { _, _ in
+        "Hello!"
+    }
+
+    MockRouteRegistrar.registerRoutes(from: "sample", on: router, logger: logger)
+    return router
+}

@@ -3,7 +3,9 @@
 #else
     import Foundation
 #endif
-#if canImport(Glibc)
+#if canImport(Darwin)
+    import Darwin
+#elseif canImport(Glibc)
     import Glibc
 #endif
 import HTTPTypes
@@ -58,16 +60,7 @@ enum MockRouteRegistrar {
                 router.on(RouterPath(routePath), method: selectedMethod) { _, _ in
                     do {
                         let refreshedDefinition = try MockRouteLoader.loadDefinition(from: standardizedURL)
-                        if let methodOverride, refreshedDefinition.method != methodOverride {
-                            logger.warning(
-                                "Mock route method does not match registered method",
-                                metadata: [
-                                    "file": "\(standardizedURL.path)",
-                                    "registered": "\(methodOverride.rawValue)",
-                                    "configured": "\(refreshedDefinition.method.rawValue)",
-                                ],
-                            )
-                        } else if methodOverride == nil, refreshedDefinition.method != selectedMethod {
+                        if methodOverride == nil, refreshedDefinition.method != selectedMethod {
                             logger.warning(
                                 "Mock route method does not match registered method",
                                 metadata: [
@@ -154,7 +147,7 @@ enum MockRouteRegistrar {
         guard !components.isEmpty else { return ("/", nil) }
 
         var methodOverride: HTTPRequest.Method?
-        let lastIndex = components.indices.last!
+        let lastIndex = components.index(before: components.endIndex)
         let lastComponent = components[lastIndex]
         if let hashIndex = lastComponent.firstIndex(of: "#") {
             let suffix = lastComponent[lastComponent.index(after: hashIndex)...]
@@ -181,7 +174,7 @@ private enum MockRouteLoaderErrorPayload {
             "error": "Failed to load mock response",
             "details": reason,
         ]
-        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [])
         guard let string = String(data: data, encoding: .utf8) else {
             throw MockRouteLoaderError.invalidJSON
         }

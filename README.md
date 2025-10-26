@@ -17,7 +17,7 @@
 ### Homebrew
 
 ```sh
-brew tap osushi/mame https://github.com/osushi/mame.git
+brew tap mui-z/mame https://github.com/mui-z/mame.git
 brew install --HEAD mame
 ```
 
@@ -29,7 +29,7 @@ The tap consumes the formula in `Formula/mame.rb` and installs the built binary 
 mint install mui-z/mame
 ```
 
-Mint will build the latest tagged release; pass a version (`mint install osushi/mame@0.1.0`) to pin your toolchain.
+Mint will build the latest tagged release; pass a version (`mint install mui-z/mame@0.1.0`) to pin your toolchain.
 
 ## Running the Server
 

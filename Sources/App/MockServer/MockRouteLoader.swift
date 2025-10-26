@@ -75,20 +75,65 @@ enum MockRouteLoader {
         if let stringValue = value as? String {
             return stringValue
         }
-        if let number = value as? NSNumber {
-            return number.stringValue
+        if let boolValue = value as? Bool {
+            return boolValue ? "true" : "false"
         }
         if value is NSNull {
             return "null"
         }
+        if let dictionary = value as? [AnyHashable: Any] {
+            let normalised = try normaliseDictionary(dictionary)
+            return try makeJSONString(from: normalised)
+        }
+        if let array = value as? [Any] {
+            let normalised = try array.map { try normaliseJSONComponent($0) }
+            return try makeJSONString(from: normalised)
+        }
         if JSONSerialization.isValidJSONObject(value) {
-            let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
-            guard let string = String(data: data, encoding: .utf8) else {
-                throw MockRouteLoaderError.invalidJSON
-            }
-            return string
+            return try makeJSONString(from: value)
+        }
+        if let convertible = value as? CustomStringConvertible {
+            return convertible.description
         }
         throw MockRouteLoaderError.invalidJSON
+    }
+
+    private static func normaliseJSONComponent(_ value: Any) throws -> Any {
+        if let dictionary = value as? [AnyHashable: Any] {
+            return try normaliseDictionary(dictionary)
+        }
+        if let array = value as? [Any] {
+            return try array.map { try normaliseJSONComponent($0) }
+        }
+        if value is NSNull || value is String || value is NSNumber || value is Bool {
+            return value
+        }
+        if JSONSerialization.isValidJSONObject(value) {
+            return value
+        }
+        if let convertible = value as? CustomStringConvertible {
+            return convertible.description
+        }
+        throw MockRouteLoaderError.invalidJSON
+    }
+
+    private static func normaliseDictionary(_ dictionary: [AnyHashable: Any]) throws -> [String: Any] {
+        var result: [String: Any] = [:]
+        for (key, value) in dictionary {
+            guard let stringKey = key as? String else {
+                throw MockRouteLoaderError.invalidFormat("Non-string key in JSON payload")
+            }
+            result[stringKey] = try normaliseJSONComponent(value)
+        }
+        return result
+    }
+
+    private static func makeJSONString(from object: Any) throws -> String {
+        let data = try JSONSerialization.data(withJSONObject: object, options: [])
+        guard let string = String(data: data, encoding: .utf8) else {
+            throw MockRouteLoaderError.invalidJSON
+        }
+        return string
     }
 
     private static func makeStatus(from code: Int) throws -> HTTPResponse.Status {

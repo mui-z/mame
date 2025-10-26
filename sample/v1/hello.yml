@@ -1,0 +1,7 @@
+status: 200
+method: GET
+latency: 100
+json:
+  {
+    "message": "hello world!"
+  }

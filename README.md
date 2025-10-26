@@ -1,17 +1,11 @@
-# mame
+# 🫛mame
+
+[![Swift](https://img.shields.io/badge/lang/swift)](https://github.com/apple/swift)
+[![LICENSE: MIT SUSHI-WARE🍣](https://raw.githubusercontent.com/watasuke102/mit-sushi-ware/master/MIT-SUSHI-WARE.svg)](https://github.com/mui-z/mame/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/mui-z/mame)](https://gitHub.com/mui-z/mame/stargazers/)
 
 `mame` is a small Hummingbird-based HTTP service that serves JSON responses defined in filesystem YAML fixtures. Each request reloads the originating YAML, so editing files under `sample/` immediately changes the returned payload—no server restart required.
 
-## Directory Layout
-
-```
-Sources/
-  App/
-    Application/         // CLI entry point and application builder
-    MockServer/          // YAML parsing, validation, and router registration helpers
-sample/                  // Hierarchical mock responses (eg. sample/v1/hello.yml)
-Tests/AppTests/          // Swift Testing suites exercising the mock server
-```
 
 ## Requirements
 
@@ -112,6 +106,17 @@ Tests (`Tests/AppTests/AppTests.swift`) use Swift Testing macros and Hummingbird
 ```sh
 docker build -t mame .
 docker run --rm -p 8080:8080 mame
+```
+
+## Directory Layout
+
+```
+Sources/
+  App/
+    Application/         // CLI entry point and application builder
+    MockServer/          // YAML parsing, validation, and router registration helpers
+sample/                  // Hierarchical mock responses (eg. sample/v1/hello.yml)
+Tests/AppTests/          // Swift Testing suites exercising the mock server
 ```
 
 ## Contributing

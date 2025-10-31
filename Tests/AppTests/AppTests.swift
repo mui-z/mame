@@ -222,4 +222,94 @@ import Testing
             }
         }
     }
+    
+    // MARK: - Edge Case Tests
+    
+    @Test
+    func invalidYAMLReturnsError() async throws {
+        let tempDir = try createTempFixtureDirectory()
+        defer { removeDirectory(at: tempDir) }
+        
+        let fileURL = tempDir.appendingPathComponent("invalid.yml")
+        let invalidYAML = """
+        invalid: yaml: content:
+          - missing
+        proper: structure
+        """
+        
+        try writeFixture(invalidYAML, to: fileURL)
+        
+        let app = try await buildApplication(TestArguments(fixtureDirectory: tempDir.path))
+        try await app.test(.router) { client in
+            try await client.execute(uri: "/invalid", method: .get) { response in
+                #expect(response.status == .internalServerError)
+            }
+        }
+    }
+    
+    @Test
+    func unicodeContentHandling() async throws {
+        let tempDir = try createTempFixtureDirectory()
+        defer { removeDirectory(at: tempDir) }
+        
+        let fileURL = tempDir.appendingPathComponent("unicode.yml")
+        let unicodeYAML = """
+        status: 200
+        method: GET
+        body:
+          {"message": "こんにちは世界 🌍", "emoji": "😺🐱"}
+        """
+        
+        try writeFixture(unicodeYAML, to: fileURL)
+        
+        let app = try await buildApplication(TestArguments(fixtureDirectory: tempDir.path))
+        try await app.test(.router) { client in
+            try await client.execute(uri: "/unicode", method: .get) { response in
+                #expect(response.status == .ok)
+                #expect(response.headers[.contentType] == "application/json; charset=utf-8")
+                let responseBody = String(buffer: response.body)
+                #expect(responseBody.contains("こんにちは世界"))
+                #expect(responseBody.contains("😺"))
+            }
+        }
+    }
+    
+    @Test
+    func emptyYAMLFileReturnsError() async throws {
+        let tempDir = try createTempFixtureDirectory()
+        defer { removeDirectory(at: tempDir) }
+        
+        let fileURL = tempDir.appendingPathComponent("empty.yml")
+        try writeFixture("", to: fileURL)
+        
+        let app = try await buildApplication(TestArguments(fixtureDirectory: tempDir.path))
+        try await app.test(.router) { client in
+            try await client.execute(uri: "/empty", method: .get) { response in
+                #expect(response.status == .internalServerError)
+            }
+        }
+    }
+    
+    @Test
+    func malformedJSONInBodyReturnsError() async throws {
+        let tempDir = try createTempFixtureDirectory()
+        defer { removeDirectory(at: tempDir) }
+        
+        let fileURL = tempDir.appendingPathComponent("malformed.yml")
+        let malformedYAML = """
+        status: 200
+        method: GET
+        body:
+          {"message": "unclosed json
+        """
+        
+        try writeFixture(malformedYAML, to: fileURL)
+        
+        let app = try await buildApplication(TestArguments(fixtureDirectory: tempDir.path))
+        try await app.test(.router) { client in
+            try await client.execute(uri: "/malformed", method: .get) { response in
+                #expect(response.status == .internalServerError)
+            }
+        }
+    }
 }

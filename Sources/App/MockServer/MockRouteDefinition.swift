@@ -58,9 +58,18 @@ enum MockRouteLoaderError: LocalizedError, CustomStringConvertible {
 }
 
 enum MockRouteResponseFactory {
-    static func makeJSONResponse(status: HTTPResponse.Status, body: String) -> Response {
+    // キャッシュされたJSONヘッダー
+    private static let cachedJSONHeaders: HTTPFields = {
         var headers = HTTPFields()
         headers[.contentType] = "application/json; charset=utf-8"
-        return Response(status: status, headers: headers, body: .init(byteBuffer: ByteBuffer(string: body)))
+        return headers
+    }()
+    
+    static func makeJSONResponse(status: HTTPResponse.Status, body: String) -> Response {
+        return Response(
+            status: status, 
+            headers: cachedJSONHeaders, 
+            body: .init(byteBuffer: ByteBuffer(string: body))
+        )
     }
 }

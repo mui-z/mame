@@ -9,11 +9,16 @@ import Hummingbird
 import Logging
 
 enum MockRouteRegistrar {
+    nonisolated(unsafe) private static var fixtureCache: FixtureCache?
+    
     static func registerRoutes(
         from directory: String,
         on router: Router<AppRequestContext>,
         logger: Logger,
     ) {
+        // キャッシュを初期化
+        fixtureCache = FixtureCache(logger: logger)
+        
         let fileManager = FileManager.default
         let directoryURL = resolveDirectoryURL(for: directory)
 
@@ -217,7 +222,22 @@ extension MockRouteRegistrar {
         enforceMethodMatch: Bool,
     ) async throws -> Response? {
         do {
-            let definition = try MockRouteLoader.loadDefinition(from: fileURL)
+            // キャッシュからフィクスチャを取得
+            guard let definition = try await fixtureCache?.getFixture(for: fileURL) else {
+                // ファイルが存在しない場合は404を返す
+                logger.warning(
+                    "Fixture missing",
+                    metadata: [
+                        "file": "\(fileURL.path)",
+                        "reason": "File not found",
+                    ],
+                )
+                return MockRouteResponseFactory.makeJSONResponse(
+                    status: .notFound,
+                    body: "{\"error\":\"Fixture not found\"}",
+                )
+            }
+            
             if let methodOverride {
                 if methodOverride != definition.method {
                     logger.warning(

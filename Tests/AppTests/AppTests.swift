@@ -13,7 +13,32 @@ import Testing
         let hostname = "127.0.0.1"
         let port = 0
         let logLevel: Logger.Level? = .trace
-        let fixtureDirectory = "sample"
+        let fixtureDirectory: String
+        
+        init(fixtureDirectory: String = "sample") {
+            self.fixtureDirectory = fixtureDirectory
+        }
+    }
+    
+    // MARK: - Test Helpers
+    
+    private func createTempFixtureDirectory() throws -> URL {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("neko-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        return tempDir
+    }
+    
+    private func writeFixture(_ content: String, to url: URL) throws {
+        try content.write(to: url, atomically: true, encoding: .utf8)
+    }
+    
+    private func removeDirectory(at url: URL) {
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            print("Failed to cleanup directory at \(url): \(error)")
+        }
     }
 
     @Test
@@ -21,7 +46,7 @@ import Testing
         let app = try await buildApplication(TestArguments())
         try await app.test(.router) { client in
             try await client.execute(uri: "/", method: .get) { response in
-                #expect(response.body == ByteBuffer(string: "Hello!"))
+                #expect(String(buffer: response.body) == "Hello!")
             }
         }
     }
@@ -40,12 +65,10 @@ import Testing
 
     @Test
     func hotReloadReflectsUpdatedYaml() async throws {
-        let fileManager = FileManager.default
-        let baseURL = URL(fileURLWithPath: fileManager.currentDirectoryPath)
-            .appendingPathComponent("sample")
-            .appendingPathComponent("v1")
-        try fileManager.createDirectory(at: baseURL, withIntermediateDirectories: true)
-        let fileURL = baseURL.appendingPathComponent("hot_reload.yml")
+        let tempDir = try createTempFixtureDirectory()
+        defer { removeDirectory(at: tempDir) }
+        
+        let fileURL = tempDir.appendingPathComponent("hot_reload.yml")
 
         let initialYAML = """
         status: 200
@@ -60,19 +83,18 @@ import Testing
           {"message":"updated"}
         """
 
-        try initialYAML.write(to: fileURL, atomically: true, encoding: .utf8)
-        defer { try? fileManager.removeItem(at: fileURL) }
+        try writeFixture(initialYAML, to: fileURL)
 
-        let app = try await buildApplication(TestArguments())
+        let app = try await buildApplication(TestArguments(fixtureDirectory: tempDir.path))
         try await app.test(.router) { client in
-            try await client.execute(uri: "/v1/hot_reload", method: .get) { response in
+            try await client.execute(uri: "/hot_reload", method: .get) { response in
                 #expect(response.status == .ok)
                 #expect(String(buffer: response.body) == "{\"message\":\"original\"}")
             }
 
-            try updatedYAML.write(to: fileURL, atomically: true, encoding: .utf8)
+            try writeFixture(updatedYAML, to: fileURL)
 
-            try await client.execute(uri: "/v1/hot_reload", method: .get) { response in
+            try await client.execute(uri: "/hot_reload", method: .get) { response in
                 #expect(response.status == .created)
                 #expect(String(buffer: response.body) == "{\"message\":\"updated\"}")
             }
@@ -81,11 +103,10 @@ import Testing
 
     @Test
     func newlyAddedFixtureServesWithoutRestart() async throws {
-        let baseURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent("sample")
-            .appendingPathComponent("v1")
-        try FileManager.default.createDirectory(at: baseURL, withIntermediateDirectories: true)
-        let fileURL = baseURL.appendingPathComponent("late_binding.yml")
+        let tempDir = try createTempFixtureDirectory()
+        defer { removeDirectory(at: tempDir) }
+        
+        let fileURL = tempDir.appendingPathComponent("late_binding.yml")
         let yaml = """
         status: 202
         method: GET
@@ -93,13 +114,11 @@ import Testing
           {"message":"late"}
         """
 
-        defer { try? FileManager.default.removeItem(at: fileURL) }
-
-        let app = try await buildApplication(TestArguments())
+        let app = try await buildApplication(TestArguments(fixtureDirectory: tempDir.path))
 
         try await app.test(.router) { client in
-            try yaml.write(to: fileURL, atomically: true, encoding: .utf8)
-            try await client.execute(uri: "/v1/late_binding", method: .get) { response in
+            try writeFixture(yaml, to: fileURL)
+            try await client.execute(uri: "/late_binding", method: .get) { response in
                 #expect(response.status == .accepted)
                 #expect(String(buffer: response.body) == "{\"message\":\"late\"}")
             }
@@ -108,25 +127,22 @@ import Testing
 
     @Test
     func newlyAddedMethodSpecificFixtureHonoursOverride() async throws {
-        let baseURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent("sample")
-            .appendingPathComponent("v1")
-        try FileManager.default.createDirectory(at: baseURL, withIntermediateDirectories: true)
-        let fileURL = baseURL.appendingPathComponent("late_binding#post.yml")
+        let tempDir = try createTempFixtureDirectory()
+        defer { removeDirectory(at: tempDir) }
+        
+        let fileURL = tempDir.appendingPathComponent("late_binding#post.yml")
         let yaml = """
         status: 201
         body:
           {"message":"late post"}
         """
 
-        defer { try? FileManager.default.removeItem(at: fileURL) }
-
-        let app = try await buildApplication(TestArguments())
+        let app = try await buildApplication(TestArguments(fixtureDirectory: tempDir.path))
 
         try await app.test(.router) { client in
-            try yaml.write(to: fileURL, atomically: true, encoding: .utf8)
+            try writeFixture(yaml, to: fileURL)
 
-            try await client.execute(uri: "/v1/late_binding", method: .post) { response in
+            try await client.execute(uri: "/late_binding", method: .post) { response in
                 #expect(response.status == .created)
                 #expect(String(buffer: response.body) == "{\"message\":\"late post\"}")
             }
@@ -135,22 +151,19 @@ import Testing
 
     @Test
     func missingFixtureReturnsNotFound() async throws {
-        let fileManager = FileManager.default
-        let baseURL = URL(fileURLWithPath: fileManager.currentDirectoryPath)
-            .appendingPathComponent("sample")
-        try fileManager.createDirectory(at: baseURL, withIntermediateDirectories: true)
-        let fileURL = baseURL.appendingPathComponent("ephemeral.yml")
+        let tempDir = try createTempFixtureDirectory()
+        defer { removeDirectory(at: tempDir) }
+        
+        let fileURL = tempDir.appendingPathComponent("ephemeral.yml")
         let yaml = """
         body:
           {"message":"temp"}
         """
-        try yaml.write(to: fileURL, atomically: true, encoding: .utf8)
+        try writeFixture(yaml, to: fileURL)
 
-        defer { try? fileManager.removeItem(at: fileURL) }
+        let app = try await buildApplication(TestArguments(fixtureDirectory: tempDir.path))
 
-        let app = try await buildApplication(TestArguments())
-
-        try fileManager.removeItem(at: fileURL)
+        try FileManager.default.removeItem(at: fileURL)
 
         try await app.test(.router) { client in
             try await client.execute(uri: "/ephemeral", method: .get) { response in
@@ -161,14 +174,11 @@ import Testing
 
     @Test
     func fileNameSuffixOverridesMethod() async throws {
-        let fileManager = FileManager.default
-        let baseURL = URL(fileURLWithPath: fileManager.currentDirectoryPath)
-            .appendingPathComponent("sample")
-            .appendingPathComponent("v1")
-        try fileManager.createDirectory(at: baseURL, withIntermediateDirectories: true)
+        let tempDir = try createTempFixtureDirectory()
+        defer { removeDirectory(at: tempDir) }
 
-        let getURL = baseURL.appendingPathComponent("multi#get.yml")
-        let postURL = baseURL.appendingPathComponent("multi#post.yml")
+        let getURL = tempDir.appendingPathComponent("multi#get.yml")
+        let postURL = tempDir.appendingPathComponent("multi#post.yml")
         let getYAML = """
         body:
           {"message":"get variant"}
@@ -177,21 +187,17 @@ import Testing
         body:
           {"message":"post variant"}
         """
-        try getYAML.write(to: getURL, atomically: true, encoding: .utf8)
-        try postYAML.write(to: postURL, atomically: true, encoding: .utf8)
-        defer {
-            try? fileManager.removeItem(at: getURL)
-            try? fileManager.removeItem(at: postURL)
-        }
+        try writeFixture(getYAML, to: getURL)
+        try writeFixture(postYAML, to: postURL)
 
-        let app = try await buildApplication(TestArguments())
+        let app = try await buildApplication(TestArguments(fixtureDirectory: tempDir.path))
         try await app.test(.router) { client in
-            try await client.execute(uri: "/v1/multi", method: .get) { response in
+            try await client.execute(uri: "/multi", method: .get) { response in
                 #expect(response.status == .ok)
                 #expect(String(buffer: response.body) == "{\"message\":\"get variant\"}")
             }
 
-            try await client.execute(uri: "/v1/multi", method: .post) { response in
+            try await client.execute(uri: "/multi", method: .post) { response in
                 #expect(response.status == .ok)
                 #expect(String(buffer: response.body) == "{\"message\":\"post variant\"}")
             }

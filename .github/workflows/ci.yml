@@ -13,10 +13,5 @@ on:
 
 jobs:
   test:
-    name: Test on ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-14]
-    uses: swiftlang/github-workflows/.github/workflows/swift-test.yml@main
-    with:
-      swift-version: '6.0'
+    name: Test
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@main

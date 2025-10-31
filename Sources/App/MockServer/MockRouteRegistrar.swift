@@ -10,6 +10,7 @@ import Logging
 
 enum MockRouteRegistrar {
     nonisolated(unsafe) private static var fixtureCache: FixtureCache?
+    nonisolated(unsafe) private static var fixtureWatcher: FixtureWatcher?
     
     static func registerRoutes(
         from directory: String,
@@ -26,6 +27,15 @@ enum MockRouteRegistrar {
         guard fileManager.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
             logger.debug("Mock response directory not found", metadata: ["directory": "\(directoryURL.path)"])
             return
+        }
+        
+        // ファイル監視を開始
+        if let cache = fixtureCache {
+            Task {
+                let watcher = FixtureWatcher(directoryURL: directoryURL, fixtureCache: cache, logger: logger)
+                await watcher.startWatching()
+                fixtureWatcher = watcher
+            }
         }
 
         guard let enumerator = fileManager.enumerator(

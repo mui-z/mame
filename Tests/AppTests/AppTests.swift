@@ -37,7 +37,26 @@ import Testing
         do {
             try FileManager.default.removeItem(at: url)
         } catch {
-            print("Failed to cleanup directory at \(url): \(error)")
+            // Log the error but don't fail the test
+            print("⚠️ Failed to cleanup test directory at \(url.path): \(error.localizedDescription)")
+            
+            // Try to remove individual files if directory removal failed
+            if let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: nil) {
+                for case let fileURL as URL in enumerator {
+                    do {
+                        try FileManager.default.removeItem(at: fileURL)
+                    } catch {
+                        print("⚠️ Failed to remove file \(fileURL.path): \(error.localizedDescription)")
+                    }
+                }
+                
+                // Try directory removal again
+                do {
+                    try FileManager.default.removeItem(at: url)
+                } catch {
+                    print("⚠️ Final cleanup failed for \(url.path): \(error.localizedDescription)")
+                }
+            }
         }
     }
 

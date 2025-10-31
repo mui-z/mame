@@ -1,6 +1,11 @@
-name: CI
+name: Pull request
+
+permissions:
+  contents: read
 
 on:
+  pull_request:
+    types: [opened, reopened, synchronize]
   push:
     branches:
     - main
@@ -8,10 +13,18 @@ on:
     - '**.swift'
     - '**.yml'
     - Package.swift
-  pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  tests:
     name: Test
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@main
+  soundness:
+    name: Soundness
+    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@main
+    with:
+      license_header_check_project_name: "neko"

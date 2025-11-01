@@ -1,9 +1,7 @@
-#if canImport(FoundationEssentials)
-    import FoundationEssentials
-#else
-    import Foundation
-#endif
+import Foundation
 import HTTPTypes
+import Hummingbird
+import Logging
 import Yams
 
 enum MockRouteLoader {

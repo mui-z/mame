@@ -19,10 +19,10 @@
 
 ```sh
 brew tap mui-z/neko https://github.com/mui-z/neko.git
-brew install --HEAD neko
+brew install neko
 ```
 
-The tap consumes the formula in `Formula/neko.rb` and installs the built binary into `$(brew --prefix)/bin/neko`. Replace `--HEAD` with a tagged release once stable tarballs are published.
+The tap consumes the formula in `Formula/neko.rb` and installs the built binary into `$(brew --prefix)/bin/neko`.
 
 ### Mint
 
@@ -30,7 +30,7 @@ The tap consumes the formula in `Formula/neko.rb` and installs the built binary 
 mint install mui-z/neko
 ```
 
-Mint will build the latest tagged release; pass a version (`mint install mui-z/neko@0.1.0`) to pin your toolchain.
+Mint will build the latest tagged release; pass a version (`mint install mui-z/neko@1.0.0`) to pin your toolchain.
 
 ## Running the Server
 
@@ -110,7 +110,7 @@ Requests are logged through a custom middleware that prints `METHOD path -> STAT
 
 ## Development Workflow
 
-1. Make code changes under `Sources/App/...` or update fixtures in `sample/`.
+1. Make code changes under `Sources/App/...` or update fixtures in your fixture directory.
 2. Run the formatter: `swiftformat .`
 3. Execute the test suite: `swift test`
 
@@ -130,8 +130,8 @@ Sources/
   App/
     Application/         // CLI entry point and application builder
     MockServer/          // YAML parsing, validation, and router registration helpers
-sample/                  // Hierarchical mock responses (eg. sample/v1/hello.yml)
 Tests/AppTests/          // Swift Testing suites exercising the mock server
+sample/                  // Example fixtures for testing and demonstration
 ```
 
 ## Contributing

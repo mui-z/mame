@@ -9,11 +9,17 @@ import Hummingbird
 import Logging
 
 enum MockRouteRegistrar {
+    private nonisolated(unsafe) static var fixtureCache: FixtureCache?
+    private nonisolated(unsafe) static var fixtureWatcher: FixtureWatcher?
+
     static func registerRoutes(
         from directory: String,
         on router: Router<AppRequestContext>,
         logger: Logger,
     ) {
+        // キャッシュを初期化
+        fixtureCache = FixtureCache(logger: logger)
+
         let fileManager = FileManager.default
         let directoryURL = resolveDirectoryURL(for: directory)
 
@@ -21,6 +27,15 @@ enum MockRouteRegistrar {
         guard fileManager.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
             logger.debug("Mock response directory not found", metadata: ["directory": "\(directoryURL.path)"])
             return
+        }
+
+        // ファイル監視を開始
+        if let cache = fixtureCache {
+            Task {
+                let watcher = FixtureWatcher(directoryURL: directoryURL, fixtureCache: cache, logger: logger)
+                await watcher.startWatching()
+                fixtureWatcher = watcher
+            }
         }
 
         guard let enumerator = fileManager.enumerator(
@@ -217,7 +232,22 @@ extension MockRouteRegistrar {
         enforceMethodMatch: Bool,
     ) async throws -> Response? {
         do {
-            let definition = try MockRouteLoader.loadDefinition(from: fileURL)
+            // キャッシュからフィクスチャを取得
+            guard let definition = try await fixtureCache?.getFixture(for: fileURL) else {
+                // ファイルが存在しない場合は404を返す
+                logger.warning(
+                    "Fixture missing",
+                    metadata: [
+                        "file": "\(fileURL.path)",
+                        "reason": "File not found",
+                    ],
+                )
+                return MockRouteResponseFactory.makeJSONResponse(
+                    status: .notFound,
+                    body: "{\"error\":\"Fixture not found\"}",
+                )
+            }
+
             if let methodOverride {
                 if methodOverride != definition.method {
                     logger.warning(

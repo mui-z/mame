@@ -130,5 +130,4 @@ sample/                  // Example fixtures for testing and demonstration
 ## Contributing
 
 - Follow the structure described in `AGENTS.md`.
-- Keep commit subjects in imperative mood (e.g. `Add orders mock route`).
 - Document new CLI flags or environment variables in the README when relevant.

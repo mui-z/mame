@@ -40,14 +40,14 @@ enum MockRouteRegistrar {
             do {
                 let definition = try MockRouteLoader.loadDefinition(from: standardizedURL)
                 let (routePath, methodOverride) = buildRoute(for: standardizedURL, relativeTo: directoryURL)
-                let selectedMethod = methodOverride ?? definition.method
+                let selectedMethod = definition.method
                 if let methodOverride, methodOverride != definition.method {
                     logger.warning(
-                        "Method override from filename",
+                        "YAML method overrides filename method",
                         metadata: [
                             "file": "\(standardizedURL.path)",
-                            "method": "\(methodOverride.rawValue)",
                             "yaml": "\(definition.method.rawValue)",
+                            "filename": "\(methodOverride.rawValue)",
                         ],
                     )
                 }
@@ -168,6 +168,7 @@ extension MockRouteRegistrar {
         }
         let fileManager = FileManager.default
         let methodSuffixes = [method.rawValue.lowercased(), method.rawValue.uppercased()]
+
         for suffix in methodSuffixes {
             for ext in ["yml", "yaml"] {
                 let candidate = root
@@ -178,6 +179,7 @@ extension MockRouteRegistrar {
                 }
             }
         }
+
         for ext in ["yml", "yaml"] {
             let candidate = root
                 .appendingPathComponent(relativePath)
@@ -193,6 +195,7 @@ extension MockRouteRegistrar {
         let decoded = requestPath.removingPercentEncoding ?? requestPath
         let trimmed = decoded.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard !trimmed.isEmpty else { return nil }
+
         let components = trimmed.split(separator: "/").map(String.init)
         var sanitized: [String] = []
         for component in components {
@@ -218,14 +221,15 @@ extension MockRouteRegistrar {
     ) async throws -> Response? {
         do {
             let definition = try MockRouteLoader.loadDefinition(from: fileURL)
+
             if let methodOverride {
                 if methodOverride != definition.method {
                     logger.warning(
-                        "Method override from filename",
+                        "YAML method overrides filename method",
                         metadata: [
                             "file": "\(fileURL.path)",
-                            "method": "\(methodOverride.rawValue)",
                             "yaml": "\(definition.method.rawValue)",
+                            "filename": "\(methodOverride.rawValue)",
                         ],
                     )
                 }

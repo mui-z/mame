@@ -5,7 +5,7 @@
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/mui_z_.svg?style=social&label=Follow%20%40mui-z)](https://twitter.com/mui_z_)
 
 
-`neko` is a small Hummingbird-based HTTP service that serves JSON responses defined in filesystem YAML fixtures. Each request reloads the originating YAML, and new fixture files are discovered on demand, so editing or adding files under `sample/` immediately changes the returned payload—no server restart required.
+`neko` is a small Hummingbird-based HTTP service that serves JSON responses defined in filesystem YAML fixtures. The service combines static route registration at startup with dynamic file discovery for hot-reload support. Each request reloads the originating YAML, and new fixture files are discovered on demand, so editing or adding files under `sample/` immediately changes the returned payload—no server restart required.
 
 
 ## Requirements
@@ -35,16 +35,15 @@ Mint will build the latest tagged release; pass a version (`mint install mui-z/n
 ## Running the Server
 
 ```sh
-swift build
 # run from repo root, pointing at the bundled fixtures
-swift run neko --hostname 0.0.0.0 --port 8080 --log-level debug --fixtures sample
+neko --hostname 0.0.0.0 --port 8080 --log-level debug --fixtures sample
 
 # or run from inside your fixtures directory
 cd sample
-swift run neko --hostname 0.0.0.0 --port 8080 --log-level debug
+neko --hostname 0.0.0.0 --port 8080 --log-level debug
 
 # or use the positional shortcut
-swift run neko sample
+neko sample
 ```
 
 `--fixtures` (alias: `--root`, `-f`) points at the directory containing YAML files. It defaults to the current working directory, so changing into the fixture directory lets you omit the flag entirely. With the bundled fixtures (`sample/`), `GET /v1/hello` returns the contents of `sample/v1/hello.yml`.
@@ -78,6 +77,21 @@ body:
 
 If `latency` is provided it is interpreted in milliseconds and applied on every request. Validation errors are logged with the offending file path. When a fixture file is deleted or missing at request time, the server logs the issue and returns a 404 response.
 
+## Hot-Reload Behavior
+
+The service provides hot-reload functionality through a hybrid approach:
+
+1. **Static Route Registration**: At startup, all existing YAML files are registered as routes in memory for fast access
+2. **Request-Time Reloading**: Each request reloads the YAML file to pick up content changes immediately
+3. **Dynamic File Discovery**: When a request returns 404, the system searches the filesystem for newly added fixture files
+
+This means:
+- **Editing existing files**: Changes are reflected immediately on the next request
+- **Adding new files**: Available after the first request triggers the dynamic discovery
+- **Deleting files**: Returns 404 on subsequent requests
+
+The system maintains security by normalizing file paths and preventing directory traversal attacks.
+
 ### Method-Specific Fixtures
 
 When multiple HTTP methods target the same path, add a `#<method>` suffix to the filename. For example:
@@ -88,7 +102,7 @@ v1/
   multi#post.yml  # POST /v1/multi
 ```
 
-The suffix is case-insensitive and overrides the YAML `method` field when present. Files without the suffix continue to rely on the `method` value (defaulting to `GET`).
+The HTTP method is determined by the `method` value inside each YAML file (defaulting to `GET`). The filename suffix is primarily for organization and allowing multiple methods for the same path. If the filename suffix differs from the YAML `method` field, the YAML value takes precedence and a warning is logged.
 
 ## Logging
 

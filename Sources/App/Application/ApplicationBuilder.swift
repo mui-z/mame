@@ -50,12 +50,12 @@ func buildRouter(logger: Logger, fixtureDirectory: String) throws -> Router<AppR
     router.get("/") { _, _ in
         "Hello!"
     }
-    
+
     router.get("/health") { _, _ in
         HealthResponse(
             status: "ok",
             uptime: ProcessInfo.processInfo.systemUptime,
-            version: "1.0.0"
+            version: "1.0.0",
         )
     }
 

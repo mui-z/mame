@@ -69,7 +69,7 @@ import Testing
             }
         }
     }
-    
+
     @Test
     func healthEndpointReturnsSystemInfo() async throws {
         let app = try await buildApplication(TestArguments())
@@ -77,7 +77,7 @@ import Testing
             try await client.execute(uri: "/health", method: .get) { response in
                 #expect(response.status == .ok)
                 #expect(response.headers[.contentType] == "application/json; charset=utf-8")
-                
+
                 let responseBody = String(buffer: response.body)
                 #expect(responseBody.contains("ok"))
                 #expect(responseBody.contains("1.0.0"))

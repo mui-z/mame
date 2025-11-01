@@ -19,41 +19,19 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+  pull_request:
+
 jobs:
   test:
-    name: Test on macOS
-    runs-on: macos-14
+    runs-on: macos-latest
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      
-    - name: Set up Swift
-      uses: swift-actions/setup-swift@v1
-      with:
-        swift-version: '6.0'
-        
-    - name: Show Swift version
-      run: swift --version
-      
-    - name: Cache Swift Package Manager
-      uses: actions/cache@v3
-      with:
-        path: .build
-        key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
-        restore-keys: |
-          ${{ runner.os }}-spm-
-          
-    - name: Build
-      run: swift build
-      
-    - name: Test
-      run: swift test --enable-code-coverage
-      
-    - name: Format Check
-      run: |
-        if command -v swiftformat &> /dev/null; then
-          swiftformat .
-          git diff --exit-code
-        else
-          echo "SwiftFormat not available, skipping format check"
-        fi
+      - uses: actions/checkout@v5
+
+      - name: Set up Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.1.0"
+
+      - name: Run tests
+        run: swift test

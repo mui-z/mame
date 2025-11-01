@@ -64,12 +64,12 @@ enum MockRouteResponseFactory {
         headers[.contentType] = "application/json; charset=utf-8"
         return headers
     }()
-    
+
     static func makeJSONResponse(status: HTTPResponse.Status, body: String) -> Response {
-        return Response(
-            status: status, 
-            headers: cachedJSONHeaders, 
-            body: .init(byteBuffer: ByteBuffer(string: body))
+        Response(
+            status: status,
+            headers: cachedJSONHeaders,
+            body: .init(byteBuffer: ByteBuffer(string: body)),
         )
     }
 }

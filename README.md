@@ -116,13 +116,6 @@ Requests are logged through a custom middleware that prints `METHOD path -> STAT
 
 Tests (`Tests/AppTests/AppTests.swift`) use Swift Testing macros and HummingbirdTesting to verify the default route, YAML-backed responses, and hot-reload behaviour. Swift 6 currently ships its own copy of Swift Testing, so the third-party dependency emits deprecation warnings—the tests still pass, and the package can be removed when the toolchain stabilises its built-in module.
 
-## Container Usage
-
-```sh
-docker build -t neko .
-docker run --rm -p 8080:8080 neko
-```
-
 ## Directory Layout
 
 ```

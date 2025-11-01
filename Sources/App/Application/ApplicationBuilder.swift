@@ -1,3 +1,8 @@
+#if canImport(FoundationEssentials)
+    import FoundationEssentials
+#else
+    import Foundation
+#endif
 import Hummingbird
 import Logging
 
@@ -44,6 +49,14 @@ func buildRouter(logger: Logger, fixtureDirectory: String) throws -> Router<AppR
 
     router.get("/") { _, _ in
         "Hello!"
+    }
+    
+    router.get("/health") { _, _ in
+        HealthResponse(
+            status: "ok",
+            uptime: ProcessInfo.processInfo.systemUptime,
+            version: "1.0.0"
+        )
     }
 
     MockRouteRegistrar.registerRoutes(from: fixtureDirectory, on: router, logger: logger)

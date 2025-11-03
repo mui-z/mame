@@ -5,7 +5,7 @@
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/mui_z_.svg?style=social&label=Follow%20%40mui-z)](https://twitter.com/mui_z_)
 
 
-`neko` is a small Hummingbird-based HTTP service that serves JSON responses defined in filesystem YAML fixtures. The service combines static route registration at startup with dynamic file discovery for hot-reload support. Each request reloads the originating YAML, and new fixture files are discovered on demand, so editing or adding files immediately changes the returned payload—no server restart required.
+`neko` is a lightweight Swift HTTP mock server that serves JSON responses from filesystem-based YAML fixtures using path-based routing.
 
 
 ## Requirements
